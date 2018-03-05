@@ -85,7 +85,7 @@ def run():
         #log.info("Finished Writing file: " + abs_path('version_info.js'))
 
     # generate html files that compare Brython and CPython distributions
-    import make_stdlib_list
+    # import make_stdlib_list
 
     import make_stdlib_static
     # build brython.js from base Javascript files

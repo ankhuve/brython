@@ -71,8 +71,8 @@ $B.regexIdentifier=/^(?:[\$A-Z_a-z\xAA\xB5\xBA\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C
 __BRYTHON__.implementation=[3,5,0,'rc',0]
 __BRYTHON__.__MAGIC__="3.5.0"
 __BRYTHON__.version_info=[3,3,0,'alpha',0]
-__BRYTHON__.compiled_date="2018-03-02 10:34:10.412322"
-__BRYTHON__.timestamp=1519983250412
+__BRYTHON__.compiled_date="2018-03-05 14:26:02.661261"
+__BRYTHON__.timestamp=1520256362661
 __BRYTHON__.builtin_module_names=["posix","sys","errno","time","_ajax","_base64","_jsre","_multiprocessing","_posixsubprocess","_profile","_svg","_sys","builtins","dis","hashlib","json","long_int","math","modulefinder","random","_abcoll","_codecs","_collections","_csv","_functools","_imp","_io","_random","_socket","_sre","_string","_struct","_sysconfigdata","_testcapi","_thread","_warnings","_weakref"]
 
 ;(function($B){Number.isInteger=Number.isInteger ||function(value){return typeof value==='number' &&
@@ -912,7 +912,16 @@ this.to_js=function(){this.js_processed=true
 var tok=this.token
 if(tok=='elif'){tok='else if'}
 var res=[tok + '($B.$bool(']
-if(tok=='while'){res.push('$locals["$no_break' + this.loop_num + '"] && ')}else if(tok=='else if'){var line_info=$get_node(this).line_num + ',' +
+if(tok=='while'){
+if(__BRYTHON__.loop_timeout){var h='\n'+' '.repeat($get_node(this).indent),h4=h+' '.repeat(4),num=this.loop_num,test_timeout=h+'var $time'+num+' = new Date()'+h+ 
+'function $test_timeout'+num+'()'+h4+ 
+'{if((new Date())-$time'+num+'>'+ 
+__BRYTHON__.loop_timeout*1000+ 
+'){throw _b_.RuntimeError.$factory("script timeout")}'+ 
+h4+'return true'+h+'}\n' 
+res.splice(0,0,test_timeout)
+res.push('$test_timeout'+num+'() && ')}
+res.push('$locals["$no_break'+this.loop_num+'"] && ')}else if(tok=='else if'){var line_info=$get_node(this).line_num + ',' +
 $get_scope(this).id
 res.push('($locals.$line_info="' + line_info + '") && ')}
 if(this.tree.length==1){res.push($to_js(this.tree)+ '))')}else{
@@ -1357,6 +1366,11 @@ this.module=$get_scope(this).module
 $loop_num++
 this.toString=function(){return '(for) ' + this.tree}
 this.transform=function(node,rank){var scope=$get_scope(this),target=this.tree[0],target_is_1_tuple=target.tree.length==1 && target.expect=='id',iterable=this.tree[1],num=this.loop_num,local_ns='$locals_' + scope.id.replace(/\./g,'_'),h='\n' + ' '.repeat(node.indent + 4)
+if(__BRYTHON__.loop_timeout){
+var test_timeout='var $time'+num+' = new Date()'+h+ 
+'function $test_timeout'+num+'(){if((new Date())-$time'+ 
+num+'>'+__BRYTHON__.loop_timeout*1000+ 
+'){throw _b_.RuntimeError.$factory("script timeout")}'+h+'return true}' }
 var $range=false
 if(target.tree.length==1 &&
 target.expct !='id' &&
@@ -1384,12 +1398,11 @@ if(range_is_builtin){new $NodeJSCtx(test_range_node,'if(1)')}else{new $NodeJSCtx
 new_nodes[pos++]=test_range_node
 var idt=target.to_js()
 if($range.tree.length==1){var start=0,stop=$range.tree[0].to_js()}else{var start=$range.tree[0].to_js(),stop=$range.tree[1].to_js()}
-var js='var $stop_' + num + '=$B.int_or_bool(' + stop + ');' +
-h + idt + '=' + start + ';' +
-h + '    var $next' + num + '= ' + idt + ',' +
-h + '    $safe' + num + '= typeof $next' + num +
-'=="number" && typeof ' + '$stop_' + num + '=="number";' +
-h + 'while(true)'
+var js=idt + '=' + start + ';' + h + 'var $stop_' + num + '=$B.int_or_bool(' + stop + '),' +
+h + '    $next'+num+'= '+idt+','+h+
+'    $safe'+num+'= typeof $next'+num+'=="number" && typeof '+
+'$stop_'+num+'=="number";'+h
+if(__BRYTHON__.loop_timeout){js +=test_timeout+h+'while($test_timeout'+num+'())'}else{js +='while(true)'}
 var for_node=new $Node()
 new $NodeJSCtx(for_node,js)
 for_node.add($NodeJS('if($safe' + num + ' && $next' + num +
@@ -1451,7 +1464,11 @@ if(this.has_break){
 new_nodes[pos++]=$NodeJS(local_ns + '["$no_break' + num +
 '"]=true;')}
 var while_node=new $Node()
-if(this.has_break){js='while(' + local_ns + '["$no_break' + num + '"])'}else{js='while(1)'}
+if(__BRYTHON__.loop_timeout){js=test_timeout+h
+if(this.has_break){js +='while($test_timeout'+num+'() && '+
+local_ns+'["$no_break'+num+'"])'}
+else{js +='while($test_timeout'+num+'())'}}else{if(this.has_break){js='while('+local_ns+'["$no_break'+num+'"])'}
+else{js='while(1)'}}
 new $NodeJSCtx(while_node,js)
 while_node.C.loop_num=num 
 while_node.C.type='for' 
